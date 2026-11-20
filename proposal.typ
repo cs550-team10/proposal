@@ -33,7 +33,7 @@
   #text(size: 10pt)[
     CS 450/550 · Oregon State University\
     Professor: Eugene Zhang\
-    Date: November 19, 2026
+    Date: November 20, 2026
   ]
 ]
 
@@ -48,13 +48,13 @@
 #v(0.45em)
 
 #text(weight: "bold")[Contribution Statement] \
-The proposal work—including paper selection from the SIGGRAPH and SIGGRAPH Asia lists, reading the target paper and key related work, identifying an implementable scope, and drafting this proposal—was divided evenly among all teammates. Each member contributed to the literature review, discussion of feasible subsets of the method, and writing and editing. All members intend to participate equally in the subsequent implementation, evaluation, final report, and presentation.
+The proposal work, including paper selection from the SIGGRAPH and SIGGRAPH Asia lists, reading the target paper and key related work, identifying an implementable scope, and drafting this proposal, was divided evenly among all teammates. Each member contributed to the literature review, discussion of feasible subsets of the method, and writing and editing. All members intend to participate equally in the subsequent implementation, evaluation, final report, and presentation.
 
 = Selected Paper
 
 J. Andreas Bærentzen, Jonàs Martínez, Jeppe Revall Frisvad, and Sylvain Lefebvre. \
 _Improving Curl Noise_. \
-In _SIGGRAPH Asia 2025 Conference Papers_ (SA Conference Papers ’25), Article 82, pages 1–10. ACM, 2025. \
+In _SIGGRAPH Asia 2025 Conference Papers_ (SA Conference Papers ’25), December 15–18, 2025, Hong Kong. ACM, New York, NY, USA, 10 pages. \
 #link("https://doi.org/10.1145/3757377.3763980")[https://doi.org/10.1145/3757377.3763980]
 
 = Problem Statement
@@ -65,14 +65,15 @@ The selected paper addresses these limitations with a cross product of gradients
 
 = Proposed Solution / Scope of Implementation
 
-We will implement a substantial, self-contained subset of the paper suitable for a two-to-three-week, three-person term project. This is a *partial implementation*. We will prioritize a correct three-dimensional core, the reprojection scheme, and two visual demonstrations rather than attempting every application or optimization in the paper.
+We will implement a self-contained subset of the paper suitable for a two-to-three-week, three-person term project. This is a *partial implementation*. We will build a correct three-dimensional core, the reprojection scheme, and two visual demonstrations. The paper's other applications are out of scope (see the list below).
 
 *Core divergence-free vector field*
-- Implement a twice-differentiable three-dimensional simplex or Perlin noise function in C++ and GLSL 1.20.
+- Implement a twice-differentiable three-dimensional noise function in C++ and GLSL 1.20, using simplex noise or Perlin noise with the quintic fade curve. The original cubic fade is only once-differentiable.
 - Compute each gradient with central differences, avoiding the need for an analytic gradient.
-- Define the field using two noise functions with different offsets:
+- Define the 3D field using two noise functions with different offsets:
   $bold(c)(bold(x)) = nabla f(bold(x)) times nabla g(bold(x))$.
-- Verify the two-dimensional and three-dimensional behavior with field visualizations and numerical divergence checks.
+- Define the 2D field from a single noise function: $bold(c)(x, y) = (f_y, -f_x)$. This is the 2D case in the paper and drives the image warp.
+- Check the fields with visualizations and a numerical divergence test: the central-difference divergence of $bold(c)$ at random points should be near zero.
 
 *Tracing and reprojection*
 - Implement `dfvn_trace(x0, t, N)` with Euler integration first and fourth-order Runge–Kutta integration second.
@@ -82,15 +83,17 @@ We will implement a substantial, self-contained subset of the paper suitable for
 
 *Selected visual applications*
 - Render a two-dimensional image warp using a full-screen quad and a sawtooth texture. The fragment shader will warp texture coordinates using the vector field and will use a constant loop bound for GLSL 1.20 compatibility.
-- Render a surface warp using each mesh vertex position as the initial point and a checkerboard lookup for visualization. We will define $f_2$ as a sphere distance function so that reprojection keeps the flow on the surface.
-- If time permits, compare against Bridson’s classic curl noise by adding point jittering in C++ and measuring the median nearest-neighbor distance.
+- Render a surface warp using each mesh vertex position as the initial point and a checkerboard lookup for visualization. We will define $f_2$ as a sphere distance function so that reprojection keeps the flow on the surface. We will keep points away from the sphere center, where the distance function is not differentiable.
+- If time permits, add curl noise jittering of a 3D point grid in C++. We will compare its median and minimum nearest-neighbor distance against plain random jitter, as in Table 1 of the paper.
 
-The optional point-jittering experiment will not replace the required two-dimensional image warp and surface warp. We will not claim to reproduce the entire paper or all of its higher-dimensional applications.
+The optional jittering experiment will not replace the required image warp and surface warp.
+
+*Out of scope.* We will not implement dimensions above three, anisotropic curl noise through high-dimensional projection, noise bounded by a surface (Eq. 13), the Poisson disk and Sobol comparisons, or the proof of divergence-freeness. We will not claim to reproduce the whole paper.
 
 = Implementation Plan & Tools
 
 - *Language and rendering:* C++ will handle noise evaluation, central-difference gradients, tracing, point jittering, and metric collection. GLSL 1.20 will provide the vertex and fragment shaders for the image and surface demonstrations. An OpenGL windowing library will provide the rendering context.
-- *Validation:* We will render a reference trace with at least 1000 steps and report root-mean-square error (RMSE) and frames per second (FPS) for Euler and fourth-order Runge–Kutta integration, with reprojection enabled and disabled. These measurements will provide a comparison corresponding to Table 2 of the paper.
+- *Validation:* We will render a reference image using at least 1000 integration steps. We will then report root-mean-square error (RMSE) against it and frames per second (FPS) for Euler and fourth-order Runge–Kutta integration, with reprojection enabled and disabled, at 64 and 512 steps. These measurements correspond to Table 2 of the paper.
 - *Timeline:*
   - Week 1: twice-differentiable noise, central-difference gradients, three-dimensional field, and basic divergence checks.
   - Week 2: tracing, reprojection, and the image warp.
@@ -103,10 +106,10 @@ The optional point-jittering experiment will not replace the required two-dimens
 - Visual demonstrations of the three-dimensional field, Euler and Runge–Kutta traces, reprojection enabled and disabled, image warping, and surface-constrained flow.
 - RMSE and FPS comparisons using the specified reference traces, together with numerical checks of the field and surface behavior.
 - A short technical report documenting the mathematics, implementation choices, partial scope, validation procedure, limitations, and comparison with the selected paper.
-- A presentation suitable for CS 450/550 at Oregon State University.
 
 = Risks & Mitigations
 
-- *Noise compatibility:* GLSL 1.20 restricts shader features and loop syntax. We will use simple shader interfaces, constant loop bounds, and a noise construction with smooth interpolation.
+- *Noise compatibility:* GLSL 1.20 restricts shader features and loop syntax. We will use simple shader interfaces, constant loop bounds, and a noise function with a quintic fade so it stays twice differentiable.
+- *Shader cost:* Each trace step needs two central-difference gradients, which is 12 noise evaluations, and RK4 needs four field evaluations per step. A long loop in one fragment shader can be slow or time out. We will compute the 1000-step reference image in C++ or in several render passes, and keep the real-time shader to 64 to 512 steps.
 - *Numerical error:* Central-difference gradients and finite step sizes can introduce error. We will use fixed, documented step sizes and compare reprojection enabled and disabled under identical conditions.
 - *Scope creep:* The required work is limited to the three-dimensional field, two integration methods, reprojection, and two visual applications. Point jittering and comparison with Bridson’s method are optional.
